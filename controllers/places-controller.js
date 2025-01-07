@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require("uuid");
 const { validationResult } = require("express-validator");
 
 const HTTPError = require("../models/http-error");
+const Place = require("../models/place");
 const getCoordsForAddress = require("../utils/location");
 
 let DUMMY_PLACES = [
@@ -74,9 +75,9 @@ const createPlace = async (req, res, next) => {
   if (errors.length) {
     return next(
       new HTTPError("Invalid data received, can't add the place", 422)
-    );
+    ); //you have to always propagate error using next() in async function because if you throw instead of return next(), promise is rejected immediately and express global error handling middleware(last middleware in app.js) can't catch the error that you throw. In sync function you can use either throw or return next() and express can catch the error. To maintain consistency, use next() in the middleware functions with (req, res, next) arguments in your next project.
   }
-  const { title, description, address, creator } = req.body;
+  const { title, description, address, creator, imageUrl } = req.body;
 
   let coordinates;
   try {
@@ -86,18 +87,22 @@ const createPlace = async (req, res, next) => {
     return next(error);
   }
 
-  const newPlace = {
-    id: uuidv4(),
+  const createdPlace = new Place({
     title,
     description,
+    imageUrl,
     address,
     location: coordinates,
     creator,
-  };
+  });
 
-  DUMMY_PLACES.push(newPlace);
+  try {
+    const result = await createdPlace.save();
+  } catch (error) {
+    return next(new HTTPError("Creating place failed, please try again", 500));
+  }
 
-  res.status(201).json({ newPlace });
+  res.status(201).json(result);
 };
 
 const updatePlace = (req, res, next) => {
