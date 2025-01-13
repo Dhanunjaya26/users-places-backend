@@ -18,9 +18,10 @@ app.use((req, res, next) => {
 });
 
 //if you throw an error(HTTPError), it will end up here and below middleware is triggered - Global Error Handling Middleware
+//This is a default expressJS error-handling middleware used to send back a standard uniform error message if something goes wrong
 app.use((error, req, res, next) => {
-  //This is a default expressJS error-handling middleware used to send back a standard uniform error message if something goes wrong
   if (res.headersSent) {
+    //refer notes in notion about res.headersSent
     return next(error);
   }
   res.status(error.code || 500);

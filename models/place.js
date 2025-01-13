@@ -12,4 +12,4 @@ const placeSchema = new mongoose.Schema({
   creator: { type: String, required: true },
 });
 
-module.exports = mongoose.model("Place", placeSchema);
+module.exports = mongoose.model("Place", placeSchema); //this returns a constructor that helps to create a model
