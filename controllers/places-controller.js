@@ -49,11 +49,10 @@ let DUMMY_PLACES = [
 
 const getPlaceById = async (req, res, next) => {
   const placeId = req.params.pid;
-  // const place = DUMMY_PLACES.find((p) => p.id === placeId);
 
   let place;
   try {
-    place = await Place.findById(placeId);
+    place = await Place.findById(placeId); // findById technically doesn't return a promise but we can still use await here because mongoDB takes care of it behind the scenes. and since finding takes a bit of time, its recommended to use await here. If you want it to return a real promise then you can do this: Place.findById(placeId).exec()
   } catch (err) {
     return next(new HTTPError("Something went wrong while finding place", 500));
   }
@@ -62,19 +61,29 @@ const getPlaceById = async (req, res, next) => {
     return next(new HTTPError("Could not find a place with the given ID", 404));
   }
 
-  res.json({ place });
+  res.json({ place: place.toObject({ getters: true }) });
 };
 
-const getPlacesByUserId = (req, res, next) => {
+const getPlacesByUserId = async (req, res, next) => {
   const userId = req.params.uid;
-  const userPlaces = DUMMY_PLACES.filter((p) => p.creator === userId);
 
-  if (userPlaces.length === 0) {
+  let places;
+  try {
+    places = await Place.find({ creator: userId }); // same as findById explanation on why we use await here.
+  } catch (err) {
+    return next(
+      new HTTPError("Something went wrong while finding places", 500)
+    );
+  }
+
+  if (places.length === 0) {
     return next(
       new HTTPError("Coudn't find places with the given user ID", 404)
     );
   }
-  res.json({ userPlaces });
+  res.json({
+    places: places.map((place) => place.toObject({ getters: true })),
+  });
 };
 
 const createPlace = async (req, res, next) => {
@@ -115,40 +124,65 @@ const createPlace = async (req, res, next) => {
   res.status(201).json(result);
 };
 
-const updatePlace = (req, res, next) => {
+const updatePlace = async (req, res, next) => {
   const { errors } = validationResult(req);
   if (errors.length) {
-    throw new HTTPError(
-      "Invalid data received, can't update place details",
-      422
+    return next(
+      new HTTPError("Invalid data received, can't update place details", 422)
     );
   }
   const placeId = req.params.pid;
 
   const { title, description } = req.body;
 
-  if (!DUMMY_PLACES.find((p) => p.id === placeId)) {
-    throw new HTTPError("can't find a place to update", 404);
+  let place;
+  try {
+    place = await Place.findById(placeId);
+  } catch (err) {
+    return next(
+      new HTTPError("Something went wrong while updating place", 500)
+    );
   }
 
-  const updatedPlace = { ...DUMMY_PLACES.find((p) => p.id === placeId) }; //spreading data to create copy of the object or else we'll be modifying the original object as only reference will be assigned to updatedPlace.
-  const placeIndex = DUMMY_PLACES.findIndex((p) => p.id === placeId);
-  updatedPlace.title = title;
-  updatedPlace.description = description;
+  if (!place) {
+    return next(new HTTPError("Could not find a place to update", 404));
+  }
 
-  DUMMY_PLACES[placeIndex] = updatedPlace;
+  place.title = title;
+  place.description = description;
 
-  res.status(200).json({ updatedPlace });
+  try {
+    await place.save();
+  } catch (err) {
+    return next(
+      new HTTPError("Something went wrong while saving the updated place", 500)
+    );
+  }
+
+  res.status(200).json({ updatedPlace: place.toObject({ getters: true }) });
 };
 
-const deletePlace = (req, res, next) => {
+const deletePlace = async (req, res, next) => {
   const placeId = req.params.pid;
 
-  if (!DUMMY_PLACES.find((p) => p.id === placeId)) {
-    throw new HTTPError("Could not find the place to delete", 404);
+  let place;
+  try {
+    place = await Place.findById(placeId);
+  } catch (err) {
+    return next(
+      new HTTPError("Something went wrong while deleting place", 500)
+    );
   }
 
-  DUMMY_PLACES = DUMMY_PLACES.filter((p) => p.id !== placeId);
+  if (!place) {
+    return next(new HTTPError("Could not find the place to delete", 404));
+  }
+
+  try {
+    await place.deleteOne();
+  } catch (err) {
+    return next(new HTTPError("Error while deleting place", 500));
+  }
 
   res.status(200).json({ message: "Deleted the place successfully" });
 };
