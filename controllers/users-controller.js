@@ -1,6 +1,6 @@
-const { v4: uuidv4 } = require("uuid");
 const { validationResult } = require("express-validator");
 const HTTPError = require("../models/http-error");
+const User = require("../models/user");
 
 const DUMMY_USERS = [
   {
@@ -17,40 +17,86 @@ const DUMMY_USERS = [
   },
 ];
 
-const getUsers = (req, res, next) => {
-  res.json({ users: DUMMY_USERS });
+const getUsers = async (req, res, next) => {
+  let users;
+  try {
+    users = await User.find({}, "-password"); // just find() returns an array of all the users from DB. but we want to make sure the response shouldn't contain password properties. To achieve this, we use filter parameters inside find method call. {} matches all the objects and '-password' means we don't want to include password in the response.
+  } catch (err) {
+    return next(new HTTPError("Fetching users failed, please try again.", 500));
+  }
+
+  res
+    .status(201)
+    .json({ users: users.map((user) => user.toObject({ getters: true })) });
 };
 
-const signUp = (req, res, next) => {
+const signUp = async (req, res, next) => {
   const { errors } = validationResult(req);
   if (errors.length) {
-    throw new HTTPError("Invalid inputs passed, please check your data", 422);
-  }
-  const { name, email, password } = req.body;
-
-  if (DUMMY_USERS.find((u) => u.email === email)) {
-    throw new HTTPError("Could not create user, Email already exists", 422);
+    return next(
+      new HTTPError("Invalid inputs passed, please check your data", 422)
+    );
   }
 
-  const newUser = {
-    id: uuidv4(),
+  const { name, email, password, image, places } = req.body;
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({ email: email });
+  } catch (err) {
+    return next(new HTTPError("finding existing user failed", 500));
+  }
+
+  if (existingUser) {
+    return next(
+      new HTTPError("User already exists, please login instead", 422)
+    );
+  }
+
+  // const newUser = {
+  //   id: uuidv4(),
+  //   name,
+  //   email,
+  //   password,
+  // };
+  // DUMMY_USERS.push(newUser);
+
+  const newUser = new User({
     name,
     email,
     password,
-  };
-  DUMMY_USERS.push(newUser);
+    image,
+    places,
+  });
 
-  res.status(201).json({ newUser });
+  let result;
+  try {
+    result = await newUser.save();
+  } catch (err) {
+    console.log(err);
+    return next(
+      new HTTPError("Something went wrong while saving the user details", 500)
+    );
+  }
+
+  res.status(201).json({ newUser: result.toObject({ getters: true }) });
 };
 
-const login = (req, res, next) => {
+const login = async (req, res, next) => {
   const { email, password } = req.body;
 
-  const user = DUMMY_USERS.find((u) => u.email === email);
+  let user;
+  try {
+    user = await User.findOne({ email: email });
+  } catch (err) {
+    return next(
+      new HTTPError("Something went wrong while finding the user", 500)
+    );
+  }
+
   if (!user || user.password !== password) {
-    throw new HTTPError(
-      "Couldn't identify user, credentials seem to be wrong",
-      401
+    return next(
+      new HTTPError("Could not identify user, credentials seem to be wrong")
     );
   }
 
