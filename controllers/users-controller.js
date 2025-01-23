@@ -2,21 +2,6 @@ const { validationResult } = require("express-validator");
 const HTTPError = require("../models/http-error");
 const User = require("../models/user");
 
-const DUMMY_USERS = [
-  {
-    id: "u1",
-    name: "dhanu",
-    email: "dhanu@gmail.com",
-    password: "dhanu26",
-  },
-  {
-    id: "u2",
-    name: "jaya",
-    email: "jaya@gmail.com",
-    password: "jaya26",
-  },
-];
-
 const getUsers = async (req, res, next) => {
   let users;
   try {
@@ -52,14 +37,6 @@ const signUp = async (req, res, next) => {
       new HTTPError("User already exists, please login instead", 422)
     );
   }
-
-  // const newUser = {
-  //   id: uuidv4(),
-  //   name,
-  //   email,
-  //   password,
-  // };
-  // DUMMY_USERS.push(newUser);
 
   const newUser = new User({
     name,
