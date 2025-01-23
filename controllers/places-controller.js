@@ -1,7 +1,9 @@
 const { validationResult } = require("express-validator");
+const mongoose = require("mongoose");
 
 const HTTPError = require("../models/http-error");
 const Place = require("../models/place");
+const User = require("../models/user");
 const getCoordsForAddress = require("../utils/location");
 
 let DUMMY_PLACES = [
@@ -66,22 +68,22 @@ const getPlaceById = async (req, res, next) => {
 const getPlacesByUserId = async (req, res, next) => {
   const userId = req.params.uid;
 
-  let places;
+  let user;
   try {
-    places = await Place.find({ creator: userId }); // same as findById explanation on why we use await here.
+    user = await User.findById(userId).populate("places"); // same as findById explanation on why we use await here.
   } catch (err) {
     return next(
       new HTTPError("Something went wrong while finding places", 500)
     );
   }
 
-  if (places.length === 0) {
+  if (!user || user.places.length === 0) {
     return next(
       new HTTPError("Coudn't find places with the given user ID", 404)
     );
   }
   res.json({
-    places: places.map((place) => place.toObject({ getters: true })),
+    places: user.places.map((place) => place.toObject({ getters: true })),
   });
 };
 
@@ -112,9 +114,34 @@ const createPlace = async (req, res, next) => {
     creator,
   });
 
+  let user;
+  try {
+    user = await User.findById(creator);
+  } catch (error) {
+    console.log("error", error);
+    return next(
+      new HTTPError("Something went wrong while searching for user", 500)
+    );
+  }
+
+  if (!user) {
+    return next(
+      new HTTPError("Can't find user for the provided creator id", 404)
+    );
+  }
+
   let result;
   try {
-    result = await createdPlace.save();
+    const newSession = await mongoose.startSession();
+    newSession.startTransaction();
+    result = await createdPlace.save({ session: newSession });
+    user.places.push(createdPlace); //mongoose takes care of pushing the id of createdPlace generated from the above line to the places array of user.
+    await user.save({ session: newSession });
+    await newSession.commitTransaction();
+    //Note: When working with sessions and transactions in MongoDB, keep in mind the following:
+    // - If you are adding the first document to a collection (i.e., creating a new collection) within a transaction, you must manually create the collection before sending the request. This is because MongoDB does not automatically create collections during transactions.
+    // - If your code does not include session or transaction logic, MongoDB will automatically create a new collection when you send a request to insert the first document.
+    //By ensuring the collection is pre-created when using transactions, you can avoid unexpected errors during execution.
   } catch (error) {
     return next(new HTTPError("Creating place failed, please try again", 500));
   }
@@ -166,7 +193,7 @@ const deletePlace = async (req, res, next) => {
 
   let place;
   try {
-    place = await Place.findById(placeId);
+    place = await Place.findById(placeId).populate("creator"); //here as we pass 'creator' string to populate method, mongoose returns the corresponding user of the place which is referenced in creator(userID) property. We can use populate method here because we've added ref in both User and Place schemas to establish a relation
   } catch (err) {
     return next(
       new HTTPError("Something went wrong while deleting place", 500)
@@ -174,11 +201,18 @@ const deletePlace = async (req, res, next) => {
   }
 
   if (!place) {
-    return next(new HTTPError("Could not find the place to delete", 404));
+    return next(
+      new HTTPError("Could not find the place for the given ID to delete", 404)
+    );
   }
 
   try {
-    await place.deleteOne();
+    const newSession = await mongoose.startSession();
+    newSession.startTransaction();
+    await place.deleteOne({ session: newSession });
+    place.creator.places.pull(place); //we can access the user using place.creator because of populate method
+    await place.creator.save({ session: newSession });
+    newSession.commitTransaction();
   } catch (err) {
     return next(new HTTPError("Error while deleting place", 500));
   }
