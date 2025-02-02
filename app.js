@@ -9,6 +9,18 @@ const app = express();
 
 app.use(express.json());
 
+//To handle CORS in browser: We have to send some headers in the response. We'll add a middleware before identifying the routes and sending responses
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*"); //allows any domain to send requests this backend
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE");
+
+  next(); //after setting the headers, we forward the request to the next middlewares and every response would have the headers attached to them.
+});
+
 app.use("/api/places", placesRouter);
 app.use("/api/users", usersRouter);
 
@@ -30,7 +42,7 @@ app.use((error, req, res, next) => {
 
 mongoose
   .connect(
-    "mongodb+srv://dhanu:iFFywzx6KsXcyjAq@cluster0.p38mc.mongodb.net/places_DB?retryWrites=true&w=majority&appName=Cluster0"
+    "mongodb+srv://dhanu:iFFywzx6KsXcyjAq@cluster0.p38mc.mongodb.net/MERN?retryWrites=true&w=majority&appName=Cluster0"
   )
   .then(() => app.listen(5000))
   .catch((error) => console.log("error while connnecting to DB"));
