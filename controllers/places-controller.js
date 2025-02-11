@@ -66,7 +66,8 @@ const createPlace = async (req, res, next) => {
   const createdPlace = new Place({
     title,
     description,
-    imageUrl,
+    imageUrl:
+      "https://th.bing.com/th?id=OLC.lp5u7VeEyp0Iew480x360&w=210&h=140&c=8&rs=1&qlt=90&o=6&dpr=1.3&pid=3.1&rm=2",
     address,
     location: coordinates,
     creator,
