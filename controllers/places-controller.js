@@ -1,5 +1,6 @@
 const { validationResult } = require("express-validator");
 const mongoose = require("mongoose");
+const fs = require("fs");
 
 const HTTPError = require("../models/http-error");
 const Place = require("../models/place");
@@ -52,7 +53,7 @@ const createPlace = async (req, res, next) => {
       new HTTPError("Invalid data received, can't add the place", 422)
     ); //you have to always propagate error using next() in async function because if you throw instead of return next(), promise is rejected immediately and express global error handling middleware(last middleware in app.js) can't catch the error that you throw. In sync function you can use either throw or return next() and express can catch the error. To maintain consistency, use next() in the middleware functions with (req, res, next) arguments in your next project.
   }
-  const { title, description, address, creator, imageUrl } = req.body;
+  const { title, description, address, creator } = req.body;
 
   let coordinates;
   try {
@@ -66,8 +67,7 @@ const createPlace = async (req, res, next) => {
   const createdPlace = new Place({
     title,
     description,
-    imageUrl:
-      "https://th.bing.com/th?id=OLC.lp5u7VeEyp0Iew480x360&w=210&h=140&c=8&rs=1&qlt=90&o=6&dpr=1.3&pid=3.1&rm=2",
+    imageUrl: req.file.path,
     address,
     location: coordinates,
     creator,
@@ -165,6 +165,8 @@ const deletePlace = async (req, res, next) => {
     );
   }
 
+  const imageUrl = place.imageUrl;
+
   try {
     const newSession = await mongoose.startSession();
     newSession.startTransaction();
@@ -175,6 +177,10 @@ const deletePlace = async (req, res, next) => {
   } catch (err) {
     return next(new HTTPError("Error while deleting place", 500));
   }
+
+  fs.unlink(imageUrl, (err) => {
+    console.log(err);
+  });
 
   res.status(200).json({ message: "Deleted the place successfully" });
 };

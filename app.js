@@ -1,5 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const fs = require("fs");
+const path = require("path");
 
 const placesRouter = require("./routes/places-routes");
 const usersRouter = require("./routes/users-routes");
@@ -8,6 +10,8 @@ const HTTPError = require("./models/http-error");
 const app = express();
 
 app.use(express.json());
+
+app.use("/uploads/images", express.static(path.join("uploads", "images"))); //middleware to serve images from the server statically
 
 //To handle CORS in browser: We have to send some headers in the response. We'll add a middleware before identifying the routes and sending responses
 app.use((req, res, next) => {
@@ -32,6 +36,12 @@ app.use((req, res, next) => {
 //if you throw an error(HTTPError), it will end up here and below middleware is triggered - Global Error Handling Middleware
 //This is a default expressJS error-handling middleware used to send back a standard uniform error message if something goes wrong
 app.use((error, req, res, next) => {
+  if (req.file) {
+    //this helps in removing the image stored on server if any error occurs with that particular request
+    fs.unlink(req.file.path, (err) => {
+      console.error(err);
+    });
+  }
   if (res.headersSent) {
     //refer notes in notion about res.headersSent
     return next(error);
