@@ -1,4 +1,7 @@
 const { validationResult } = require("express-validator");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
 const HTTPError = require("../models/http-error");
 const User = require("../models/user");
 
@@ -38,10 +41,17 @@ const signUp = async (req, res, next) => {
     );
   }
 
+  let hashedPassword;
+  try {
+    hashedPassword = await bcrypt.hash(password, 12);
+  } catch (err) {
+    return next(new HTTPError("Could not hash password", 500));
+  }
+
   const newUser = new User({
     name,
     email,
-    password,
+    password: hashedPassword,
     image: req.file.path,
     places: [],
   });
@@ -56,7 +66,22 @@ const signUp = async (req, res, next) => {
     );
   }
 
-  res.status(201).json({ newUser: result.toObject({ getters: true }) });
+  let token;
+  try {
+    token = await jwt.sign(
+      { userId: newUser.id, email: newUser.email },
+      "yohoho_luffy_dono",
+      { expiresIn: "1h" }
+    );
+  } catch (err) {
+    return next(
+      new HTTPError("Could not generate token while signing up", 500)
+    );
+  }
+
+  res
+    .status(201)
+    .json({ userId: newUser.id, email: newUser.email, token: token });
 };
 
 const login = async (req, res, next) => {
@@ -71,15 +96,42 @@ const login = async (req, res, next) => {
     );
   }
 
-  if (!user || user.password !== password) {
+  if (!user) {
+    return next(new HTTPError("User doesn't exist"));
+  }
+
+  let isValidUser;
+  try {
+    isValidUser = await bcrypt.compare(password, user.password);
+  } catch (err) {
+    return next(
+      new HTTPError("Something went wrong while verifying password", 500)
+    );
+  }
+
+  if (!isValidUser) {
     return next(
       new HTTPError("Could not identify user, credentials seem to be wrong")
     );
   }
 
+  let token;
+  try {
+    token = await jwt.sign(
+      { userId: user.id, email: user.email },
+      "yohoho_luffy_dono", //use the same private key as that of signup or else you will generate different tokens and later when client sends a req with token, you wouldn't be able to validate that properly on server.
+      { expiresIn: "1h" }
+    );
+  } catch (err) {
+    return next(
+      new HTTPError("Could not generate token while logging in", 500)
+    );
+  }
+
   res.json({
-    message: "Login Successful",
-    user: user.toObject({ getters: true }),
+    userId: user.id,
+    email: user.email,
+    token: token,
   });
 };
 
