@@ -133,6 +133,12 @@ const updatePlace = async (req, res, next) => {
     return next(new HTTPError("Could not find a place to update", 404));
   }
 
+  if (place.creator.toString() !== req.userData.userId) {
+    return next(
+      new HTTPError("You are not allowed to update this place!!", 401)
+    );
+  }
+
   place.title = title;
   place.description = description;
 
@@ -162,6 +168,13 @@ const deletePlace = async (req, res, next) => {
   if (!place) {
     return next(
       new HTTPError("Could not find the place for the given ID to delete", 404)
+    );
+  }
+
+  if (place.creator.id !== req.userData.userId) {
+    //creator.id here because with populate method, the creator property holds the full user details, whereas in the updatePlace method, the creator key just holds the user ID. And we don't have to call toString() here because the id getter already gives the string
+    return next(
+      new HTTPError("You are not allowed to delete this place!!", 401)
     );
   }
 

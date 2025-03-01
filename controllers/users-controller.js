@@ -97,7 +97,7 @@ const login = async (req, res, next) => {
   }
 
   if (!user) {
-    return next(new HTTPError("User doesn't exist"));
+    return next(new HTTPError("User doesn't exist", 404));
   }
 
   let isValidUser;
@@ -111,7 +111,10 @@ const login = async (req, res, next) => {
 
   if (!isValidUser) {
     return next(
-      new HTTPError("Could not identify user, credentials seem to be wrong")
+      new HTTPError(
+        "Could not identify user, credentials seem to be wrong",
+        403
+      )
     );
   }
 
