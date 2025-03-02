@@ -53,7 +53,7 @@ const createPlace = async (req, res, next) => {
       new HTTPError("Invalid data received, can't add the place", 422)
     ); //you have to always propagate error using next() in async function because if you throw instead of return next(), promise is rejected immediately and express global error handling middleware(last middleware in app.js) can't catch the error that you throw. In sync function you can use either throw or return next() and express can catch the error. To maintain consistency, use next() in the middleware functions with (req, res, next) arguments in your next project.
   }
-  const { title, description, address, creator } = req.body;
+  const { title, description, address } = req.body;
 
   let coordinates;
   try {
@@ -70,12 +70,12 @@ const createPlace = async (req, res, next) => {
     imageUrl: req.file.path,
     address,
     location: coordinates,
-    creator,
+    creator: req.userData.userId,
   });
 
   let user;
   try {
-    user = await User.findById(creator);
+    user = await User.findById(req.userData.userId);
   } catch (error) {
     console.log("error", error);
     return next(
