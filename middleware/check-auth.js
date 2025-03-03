@@ -13,7 +13,7 @@ module.exports = (req, res, next) => {
     if (!token) {
       throw new Error("Authentication failed");
     }
-    const decodedToken = jwt.verify(token, "yohoho_luffy_dono"); //if this line fails, it goes into catch block. If passes, then execute next line
+    const decodedToken = jwt.verify(token, process.env.JWT_PRIVATE_KEY); //if this line fails, it goes into catch block. If passes, then execute next line
     req.userData = { userId: decodedToken.userId }; //attaching some data to the request in server, to be used in the next middlewares
     next(); //goes into the next middleware, i.e, post, patch and delete routes in places-routes.
   } catch (err) {

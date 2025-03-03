@@ -70,7 +70,7 @@ const signUp = async (req, res, next) => {
   try {
     token = await jwt.sign(
       { userId: newUser.id, email: newUser.email },
-      "yohoho_luffy_dono",
+      process.env.JWT_PRIVATE_KEY,
       { expiresIn: "1h" }
     );
   } catch (err) {
@@ -122,7 +122,7 @@ const login = async (req, res, next) => {
   try {
     token = await jwt.sign(
       { userId: user.id, email: user.email },
-      "yohoho_luffy_dono", //use the same private key as that of signup or else you will generate different tokens and later when client sends a req with token, you wouldn't be able to validate that properly on server.
+      process.env.JWT_PRIVATE_KEY, //use the same private key as that of signup or else you will generate different tokens and later when client sends a req with token, you wouldn't be able to validate that properly on server.
       { expiresIn: "1h" }
     );
   } catch (err) {
